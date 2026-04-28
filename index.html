@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Doxycycline — Local & Systemic Dermal Toxicity Prediction</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#f8fafc;color:#1e293b;padding:1.5rem 1rem 3rem;}
+.page{max-width:980px;margin:0 auto;}
+header{text-align:center;margin-bottom:1.5rem;padding-bottom:1rem;border-bottom:2px solid #0f766e;}
+header h1{font-size:1.6rem;font-weight:700;color:#0d1b4b;margin-bottom:.25rem;}
+header p{font-size:.9rem;color:#64748b;font-style:italic;}
+
+/* TAB NAV */
+.tabs{display:flex;gap:0;margin-bottom:1.5rem;border-bottom:2px solid #e2e8f0;}
+.tab{padding:.65rem 1.4rem;font-size:13px;font-weight:600;cursor:pointer;border:none;background:none;
+     color:#64748b;border-bottom:3px solid transparent;margin-bottom:-2px;transition:all .2s;}
+.tab.active{color:#0d1b4b;border-bottom-color:#0f766e;}
+.tab:hover:not(.active){color:#0d1b4b;background:#f1f5f9;}
+.tab-badge{display:inline-block;font-size:10px;padding:2px 6px;border-radius:10px;margin-left:6px;font-weight:700;}
+.badge-local{background:#ccfbf1;color:#0f766e;}
+.badge-sys{background:#ede9fe;color:#6d28d9;}
+
+.panel{display:none;}.panel.active{display:block;}
+
+/* METRICS */
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:10px;margin-bottom:1.2rem;}
+.metric{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:.75rem 1rem;}
+.metric-label{font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px;}
+.metric-value{font-size:1.1rem;font-weight:700;color:#0d1b4b;}
+
+/* CONTROLS */
+.controls{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:.9rem 1.2rem;
+          margin-bottom:1.1rem;display:flex;flex-wrap:wrap;gap:1rem;align-items:center;}
+.cg{display:flex;align-items:center;gap:8px;flex:1;min-width:200px;}
+.cg label{font-size:12px;color:#64748b;white-space:nowrap;min-width:120px;}
+input[type=range]{flex:1;accent-color:#0f766e;cursor:pointer;}
+select{flex:1;padding:5px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;
+       color:#1e293b;background:#fff;outline:none;cursor:pointer;}
+.cv{font-size:12px;font-weight:600;color:#0d1b4b;min-width:38px;}
+
+/* CHART PANELS */
+.chart-panel{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:1.1rem;margin-bottom:1.1rem;}
+.chart-panel h2{font-size:13px;font-weight:600;color:#0d1b4b;margin-bottom:.5rem;}
+.section-label{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+               color:#0f766e;margin-bottom:5px;display:block;}
+.section-label.purple{color:#7c3aed;}
+.legend-row{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:8px;font-size:11px;color:#64748b;align-items:center;}
+.li{display:flex;align-items:center;gap:5px;}
+.ll{width:20px;height:3px;border-radius:2px;display:inline-block;}
+.ld{width:20px;height:0;border-top:2px dashed #e24b4a;display:inline-block;}
+.ldot{width:9px;height:9px;border-radius:50%;display:inline-block;}
+.lbox{width:12px;height:12px;border-radius:2px;display:inline-block;}
+.chart-wrap{position:relative;height:280px;}
+.chart-wrap-sm{position:relative;height:220px;}
+.chart-wrap-md{position:relative;height:250px;}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:1.1rem;}
+@media(max-width:620px){.two-col{grid-template-columns:1fr;}}
+
+.note{margin-top:9px;padding:6px 11px;border-radius:6px;font-size:11px;line-height:1.5;}
+.note-amber{background:#fef3c7;border:1px solid #d97706;color:#92400e;}
+.note-green{background:#f0fdf4;border:1px solid #166534;color:#166534;}
+.note-purple{background:#faf5ff;border:1px solid #7c3aed;color:#6d28d9;}
+.note-blue{background:#eff6ff;border:1px solid #3b82f6;color:#1d4ed8;}
+.note-red{background:#fff1f2;border:1px solid #be123c;color:#9f1239;}
+
+.interp{background:#f1f5f9;border-left:4px solid #0f766e;border-radius:0 8px 8px 0;
+        padding:.8rem 1rem;margin-bottom:1.1rem;font-size:12px;color:#334155;line-height:1.65;}
+.interp.purple{border-left-color:#7c3aed;}
+.interp strong{color:#0d1b4b;}
+
+/* ROUTE COMPARISON TABLE */
+.route-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:.5rem;}
+.route-table th{background:#0d1b4b;color:#fff;padding:8px 12px;text-align:left;font-weight:600;}
+.route-table td{padding:7px 12px;border-bottom:1px solid #e2e8f0;vertical-align:top;}
+.route-table tr:nth-child(even) td{background:#f8fafc;}
+.route-table .tag{display:inline-block;padding:2px 7px;border-radius:10px;font-size:10px;font-weight:700;}
+.tag-local{background:#ccfbf1;color:#0f766e;}
+.tag-sys{background:#ede9fe;color:#6d28d9;}
+.tag-both{background:#fef3c7;color:#b45309;}
+
+/* RISK GAUGE */
+.gauge-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin:1rem 0;}
+.gauge-card{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:.8rem 1rem;}
+.gauge-label{font-size:11px;color:#64748b;margin-bottom:.4rem;}
+.gauge-bar-bg{background:#e2e8f0;border-radius:4px;height:10px;overflow:hidden;}
+.gauge-bar{height:10px;border-radius:4px;transition:width .5s ease;}
+.gauge-val{font-size:12px;font-weight:700;margin-top:.3rem;}
+
+footer{margin-top:2rem;padding-top:1rem;border-top:1px solid #e2e8f0;
+       font-size:11px;color:#94a3b8;line-height:1.9;}
+footer strong{color:#64748b;display:block;margin-bottom:3px;font-size:12px;}
+</style>
+</head>
+<body>
+<div class="page">
+
+<header>
+  <h1>Doxycycline — Local &amp; Systemic Dermal Toxicity Prediction</h1>
+  <p>Interactive prediction tool · Oral and topical formulations · UVA/UVB · Fitzpatrick skin type · Real-world exposure time</p>
+</header>
+
+<!-- TAB NAV -->
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('local')">
+    Local Dermal Toxicity <span class="tab-badge badge-local">Phototoxicity</span>
+  </button>
+  <button class="tab" onclick="switchTab('systemic')">
+    Systemic Dermal Toxicity <span class="tab-badge badge-sys">Absorption &amp; Organ Risk</span>
+  </button>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- LOCAL TAB                                                  -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div id="panel-local" class="panel active">
+
+  <div class="metrics">
+    <div class="metric"><div class="metric-label">Drug dose</div><div class="metric-value" id="l-dose">100 mg/day</div></div>
+    <div class="metric"><div class="metric-label">Skin type</div><div class="metric-value" id="l-skin">I–II (fair)</div></div>
+    <div class="metric"><div class="metric-label">Risk at 50 J/cm²</div><div class="metric-value" id="l-r50">—</div></div>
+    <div class="metric"><div class="metric-label">Risk at 100 J/cm²</div><div class="metric-value" id="l-r100">—</div></div>
+    <div class="metric"><div class="metric-label">Threshold in</div><div class="metric-value" id="l-time">~35 min</div></div>
+  </div>
+
+  <div class="controls">
+    <div class="cg">
+      <label>Drug dose (mg/day)</label>
+      <input type="range" id="l-dose-s" min="50" max="300" step="50" value="100">
+      <span class="cv" id="l-dv">100</span>
+    </div>
+    <div class="cg">
+      <label>Fitzpatrick skin type</label>
+      <select id="l-skin-s">
+        <option value="0">I–II (fair, always burns)</option>
+        <option value="1">III–IV (medium, sometimes burns)</option>
+        <option value="2">V–VI (dark, rarely burns)</option>
+      </select>
+    </div>
+    <div class="cg">
+      <label>UV environment</label>
+      <select id="l-env-s">
+        <option value="0">Tropical midday sun</option>
+        <option value="1">Temperate summer</option>
+        <option value="2">Overcast / indoor</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="chart-panel">
+    <span class="section-label">Chart 1 — UVA dose-response</span>
+    <h2>Relative erythema vs. UVA1 dose — Bjellerup &amp; Ljunggren (1994)</h2>
+    <div class="legend-row">
+      <span class="li"><span class="ll" id="l-leg-c1" style="background:#0f766e;"></span>Selected scenario</span>
+      <span class="li"><span class="ld"></span>Placebo</span>
+      <span class="li"><span class="ll" id="l-leg-env" style="background:#f59e0b;border-top:2px dotted #f59e0b;height:0;"></span>Real-world UV accumulation</span>
+      <span class="li"><span class="ldot" style="background:#b45309;"></span>Measured data point</span>
+      <span class="li"><span class="lbox" style="background:rgba(226,75,74,.1);border:1px solid rgba(226,75,74,.4);"></span>Threshold zone ≥50 J/cm²</span>
+    </div>
+    <div class="chart-wrap"><canvas id="l-chart1" role="img" aria-label="UVA dose-response erythema curve">Erythema rises steeply above 50 J/cm² on doxycycline.</canvas></div>
+    <div class="note note-amber">⚠ Threshold: significant erythema at ≥50 J/cm² UVA1 (Bjellerup &amp; Ljunggren 1994). Below 25 J/cm² — no significant difference from placebo.</div>
+  </div>
+
+  <div class="two-col">
+    <div class="chart-panel">
+      <span class="section-label">Chart 2 — Incidence vs. dose</span>
+      <h2>Phototoxicity incidence (%) vs. daily dose</h2>
+      <div class="legend-row">
+        <span class="li"><span class="lbox" style="background:rgba(15,118,110,.25);border:1px solid #0f766e;"></span>Reported range</span>
+        <span class="li"><span class="ldot" style="background:#0f766e;"></span>Mid-estimate</span>
+      </div>
+      <div class="chart-wrap-sm"><canvas id="l-chart2" role="img" aria-label="Incidence vs daily dose">Incidence: 3–8% at 100 mg/day up to 15–40% at 300 mg/day.</canvas></div>
+      <div class="note note-green">Sources: Goetze 2017; Giulia 2021; Chen 2025.</div>
+    </div>
+    <div class="chart-panel">
+      <span class="section-label">Chart 3 — UVB augmentation (Bjellerup 1986)</span>
+      <h2>Mixed UVA+UVB vs. UVA alone</h2>
+      <div class="legend-row">
+        <span class="li"><span class="ll" style="background:#7c3aed;"></span>UVA+UVB (outdoor sun)</span>
+        <span class="li"><span class="ll" style="background:#0f766e;"></span>UVA alone (lab)</span>
+        <span class="li"><span class="ld"></span>Placebo</span>
+      </div>
+      <div class="chart-wrap-sm"><canvas id="l-chart3" role="img" aria-label="UVB augmentation">Mixed solar UV produces ~1.85× more erythema than UVA alone.</canvas></div>
+      <div class="note note-purple">⚠ Real outdoor sun contains both UVA+UVB — lab tests underestimate outdoor risk.</div>
+    </div>
+  </div>
+
+  <div class="chart-panel">
+    <span class="section-label">Chart 4 — Real-world time to 50 J/cm² threshold</span>
+    <h2>Cumulative UVA dose over time by environment</h2>
+    <div class="legend-row">
+      <span class="li"><span class="ll" style="background:#f59e0b;"></span>Tropical midday (~24 mW/cm²)</span>
+      <span class="li"><span class="ll" style="background:#0369a1;"></span>Temperate summer (~8 mW/cm²)</span>
+      <span class="li"><span class="ll" style="background:#94a3b8;"></span>Overcast/indoor (~1 mW/cm²)</span>
+      <span class="li"><span class="lbox" style="background:rgba(226,75,74,.1);border:1px solid rgba(226,75,74,.5);"></span>50 J/cm² threshold</span>
+      <span class="li" id="l-env-mark-leg" style="display:none;"><span class="ldot" style="background:#e24b4a;"></span>Your environment</span>
+    </div>
+    <div class="chart-wrap-md"><canvas id="l-chart4" role="img" aria-label="Time to threshold">Tropical: ~35 min. Temperate: ~105 min. Overcast: 800+ min.</canvas></div>
+    <div class="note note-blue">⏱ In your selected environment, the 50 J/cm² threshold is reached in approximately <strong id="l-thresh-time">35 minutes</strong>.</div>
+  </div>
+
+  <div class="interp">
+    <strong>Local toxicity interpretation — </strong>These curves show population-level risk patterns for <em>oral</em> doxycycline. The phototoxic reaction is a LOCAL skin effect driven by UVA activation of doxycycline accumulated in the skin. No validated model combines all four variables (dose, skin type, UVA, time) for precise individual prediction. Risk direction is clear; precise probability is not yet possible.
+  </div>
+</div><!-- end local panel -->
+
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- SYSTEMIC TAB                                               -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div id="panel-systemic" class="panel">
+
+  <!-- Route selector -->
+  <div class="controls">
+    <div class="cg">
+      <label>Formulation route</label>
+      <select id="s-route-s" onchange="updateSystemic()">
+        <option value="oral">Oral doxycycline (tablet/capsule)</option>
+        <option value="topical">Topical doxycycline (cream/gel)</option>
+      </select>
+    </div>
+    <div class="cg">
+      <label>Daily dose (mg)</label>
+      <input type="range" id="s-dose-s" min="50" max="300" step="50" value="100" oninput="updateSystemic()">
+      <span class="cv" id="s-dv">100</span>
+    </div>
+    <div class="cg">
+      <label>Application site (topical)</label>
+      <select id="s-site-s" onchange="updateSystemic()">
+        <option value="face">Face (~0.8% absorption)</option>
+        <option value="forearm">Forearm (~1.0% absorption)</option>
+        <option value="scalp">Scalp (~3.5% absorption)</option>
+        <option value="scrotum">Scrotum (~36% absorption)</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Route comparison -->
+  <div class="chart-panel">
+    <span class="section-label purple">Route comparison — oral vs. topical</span>
+    <h2>How the route of administration changes what "systemic dermal toxicity" means</h2>
+    <table class="route-table">
+      <tr>
+        <th>Factor</th>
+        <th>Oral doxycycline</th>
+        <th>Topical doxycycline</th>
+      </tr>
+      <tr>
+        <td><strong>Primary absorption route</strong></td>
+        <td>GI tract (~93% bioavailability) <span class="tag tag-sys">systemic via gut</span></td>
+        <td>Skin (1–36% depending on site) <span class="tag tag-sys">systemic via skin</span></td>
+      </tr>
+      <tr>
+        <td><strong>Local skin toxicity</strong></td>
+        <td>Phototoxicity (UVA-driven) <span class="tag tag-local">local</span></td>
+        <td>Contact dermatitis, irritation <span class="tag tag-local">local</span></td>
+      </tr>
+      <tr>
+        <td><strong>Systemic toxicity pathway</strong></td>
+        <td>Hepatotoxicity, nephrotoxicity, GI effects via high plasma levels</td>
+        <td>Dermal absorption → plasma → organ effects (at high doses/large area)</td>
+      </tr>
+      <tr>
+        <td><strong>Key predictors (systemic)</strong></td>
+        <td>Oral dose, renal function, drug interactions, duration</td>
+        <td>Permeability coefficient (Kp), application area, skin condition, occlusion</td>
+      </tr>
+      <tr>
+        <td><strong>Quantitative model available?</strong></td>
+        <td>Yes — PK models for plasma levels well established</td>
+        <td>Partial — PBPK/PBTK models exist but limited doxy-specific data</td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- Dynamic risk gauges -->
+  <div class="chart-panel">
+    <span class="section-label purple">Systemic risk indicators — <span id="s-route-label">Oral doxycycline</span></span>
+    <h2>Estimated relative systemic exposure and organ risk at selected dose</h2>
+    <div class="gauge-row" id="gauge-row">
+      <!-- filled by JS -->
+    </div>
+    <div class="note note-red" id="s-route-note">These are qualitative risk indicators based on published PK/PBPK data, not absolute predictions for an individual patient.</div>
+  </div>
+
+  <!-- Systemic charts side by side -->
+  <div class="two-col">
+    <div class="chart-panel">
+      <span class="section-label purple">Chart 5 — Oral: plasma level vs. dose</span>
+      <h2>Estimated steady-state plasma Cmax vs. oral dose</h2>
+      <div class="legend-row">
+        <span class="li"><span class="ll" style="background:#7c3aed;"></span>Estimated Cmax (μg/mL)</span>
+        <span class="li"><span class="lbox" style="background:rgba(190,18,60,.1);border:1px solid rgba(190,18,60,.4);"></span>Hepatotoxicity risk zone (>4 μg/mL)</span>
+      </div>
+      <div class="chart-wrap-sm"><canvas id="s-chart1" role="img" aria-label="Plasma level vs oral dose">Plasma Cmax rises with oral dose; hepatotoxicity risk above 4 ug/mL.</canvas></div>
+      <div class="note note-purple">Oral doxycycline Cmax: ~1.5 μg/mL at 100 mg, ~3.0 μg/mL at 200 mg. Therapeutic range 1–4 μg/mL. Source: standard PK data.</div>
+    </div>
+    <div class="chart-panel">
+      <span class="section-label purple">Chart 6 — Topical: dermal absorption by body site</span>
+      <h2>Percentage dermal absorption by anatomical site</h2>
+      <div class="legend-row">
+        <span class="li"><span class="lbox" style="background:rgba(124,58,237,.3);border:1px solid #7c3aed;"></span>% absorbed systemically</span>
+      </div>
+      <div class="chart-wrap-sm"><canvas id="s-chart2" role="img" aria-label="Dermal absorption by site">Absorption varies from 0.8% on forearm to 36% on scrotum.</canvas></div>
+      <div class="note note-purple">Site-specific absorption differences of up to 40× mean body site is a critical predictor for topical formulations. Source: Feldmann &amp; Maibach reference data; Krumpholz et al. 2025.</div>
+    </div>
+  </div>
+
+  <!-- PBPK model explanation -->
+  <div class="chart-panel">
+    <span class="section-label purple">Chart 7 — PBPK model: topical systemic exposure over time</span>
+    <h2>Estimated systemic doxycycline absorption from topical application over 24 hours</h2>
+    <div class="legend-row">
+      <span class="li"><span class="ll" style="background:#7c3aed;"></span>Scalp (3.5% absorption)</span>
+      <span class="li"><span class="ll" style="background:#0f766e;"></span>Forearm (1.0%)</span>
+      <span class="li"><span class="ll" style="background:#f59e0b;"></span>Face (0.8%)</span>
+      <span class="li"><span class="lbox" style="background:rgba(190,18,60,.08);border:1px solid rgba(190,18,60,.4);"></span>Systemic concern threshold</span>
+    </div>
+    <div class="chart-wrap-md"><canvas id="s-chart3" role="img" aria-label="PBPK topical absorption over time">Cumulative systemic exposure rises over 24h, highest at scalp application site.</canvas></div>
+    <div class="note note-purple">Modelled from PBPK framework (Zhang et al. 2024; Krumpholz et al. 2025). Assumes 100 mg/day topical dose, 400 cm² application area, no occlusion. Values are illustrative estimates — not validated clinical data.</div>
+  </div>
+
+  <div class="interp purple">
+    <strong>Systemic toxicity interpretation — </strong>
+    For <em>oral doxycycline</em>: systemic toxicity is predicted primarily from plasma drug levels driven by oral dose and renal clearance — not by skin. The skin reaction (phototoxicity) is a separate local process.
+    For <em>topical doxycycline</em>: the skin IS the absorption barrier. Systemic exposure depends on the permeability coefficient (Kp), application site, surface area, skin integrity, and occlusion. PBPK/PBTK models (Zhang 2024; Krumpholz 2025) are the current best tool for prediction but lack doxycycline-specific validation. No model currently allows precise individual systemic risk prediction from topical application.
+  </div>
+
+</div><!-- end systemic panel -->
+
+<footer>
+  <strong>References</strong>
+  [1] Goetze S et al. (2017). Phototoxicity of doxycycline. <em>Skin Pharmacol Physiol</em> 30:76–80.<br>
+  [2] Bjellerup M, Ljunggren B. (1994). Phototoxic potency: doxycycline vs lymecycline. <em>Br J Dermatol</em> 130:356–360.<br>
+  [3] Bjellerup M. (1986). UVB is important in doxycycline phototoxicity. <em>Acta Derm Venereol</em> 66:510–514.<br>
+  [4] Giulia O et al. (2021). Tetracyclines and photosensitive skin reactions. <em>Dermatol Ther</em> e14978.<br>
+  [5] Rok J et al. (2015). Doxycycline phototoxic action on melanocytes. <em>Photochem Photobiol</em> 91.<br>
+  [6] Chen L et al. (2025). Dermatological AEs of doxycycline as PEP. <em>J Antimicrob Chemother</em>.<br>
+  [7] Paradkar K et al. (2021). Doxycycline phototoxicity in travelers. <em>J Pediatrics</em>.<br>
+  [8] Zhang D et al. (2024). Computational workflow for percutaneous absorption. <em>Int J Pharm</em> 125084.<br>
+  [9] Krumpholz L et al. (2025). PBPK modelling for dermal absorption. <em>Int J Pharm</em> 126168.<br>
+  [10] Feldmann RJ, Maibach HI. (1974). Percutaneous penetration of steroids in man. <em>J Invest Dermatol</em> 62:380–383.
+</footer>
+</div>
+
+<script>
+// ── Helpers ──────────────────────────────────────────────────
+function sigmoid(x,k,x0){return 1/(1+Math.exp(-k*(x-x0)));}
+function getEry(uva,dose,skin){
+  var df=dose<=100?1.0:dose<=150?1.35:dose<=200?1.7:2.2;
+  var sf=[1.0,0.65,0.35][skin];
+  return Math.min(sigmoid(uva,0.07,48)*df*sf,1.0);
+}
+var skinLabels=['I–II (fair)','III–IV (medium)','V–VI (dark)'];
+var skinColors=['#0f766e','#0369a1','#7c3aed'];
+var envIrrad=[24,8,1];
+var envColors=['#f59e0b','#0369a1','#94a3b8'];
+var uvaFine=Array.from({length:101},function(_,i){return i;});
+var timeAxis=Array.from({length:121},function(_,i){return i;});
+function minsToThresh(ei){return Math.round(50000/(envIrrad[ei]*60));}
+function cumDose(mins,ei){return +(envIrrad[ei]*0.001*mins*60).toFixed(2);}
+function riskLabel(r){
+  if(r<0.10)return 'Low (<10%)';
+  if(r<0.30)return 'Moderate';
+  if(r<0.60)return 'High';
+  return 'Very high';
+}
+
+// Tab switching
+function switchTab(tab){
+  document.querySelectorAll('.tab').forEach(function(t,i){
+    t.classList.toggle('active', (i===0&&tab==='local')||(i===1&&tab==='systemic'));
+  });
+  document.getElementById('panel-local').classList.toggle('active', tab==='local');
+  document.getElementById('panel-systemic').classList.toggle('active', tab==='systemic');
+}
+
+// ── Threshold zone plugin ─────────────────────────────────────
+var threshPlugin={id:'thresh',beforeDraw:function(chart){
+  var ctx=chart.ctx,ca=chart.chartArea,sc=chart.scales;
+  if(!ca)return;
+  var x50=sc.x.getPixelForValue(50);
+  ctx.save();
+  ctx.fillStyle='rgba(226,75,74,0.08)';
+  ctx.fillRect(x50,ca.top,ca.right-x50,ca.bottom-ca.top);
+  ctx.setLineDash([5,4]);ctx.strokeStyle='rgba(226,75,74,0.5)';ctx.lineWidth=1.2;
+  ctx.beginPath();ctx.moveTo(x50,ca.top);ctx.lineTo(x50,ca.bottom);ctx.stroke();
+  ctx.restore();
+}};
+var hThreshPlugin={id:'hThresh',beforeDraw:function(chart){
+  var ctx=chart.ctx,ca=chart.chartArea,sc=chart.scales;
+  if(!ca)return;
+  var y50=sc.y.getPixelForValue(50);
+  ctx.save();
+  ctx.fillStyle='rgba(226,75,74,0.07)';
+  ctx.fillRect(ca.left,ca.top,ca.right-ca.left,y50-ca.top);
+  ctx.setLineDash([6,4]);ctx.strokeStyle='rgba(226,75,74,0.6)';ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.moveTo(ca.left,y50);ctx.lineTo(ca.right,y50);ctx.stroke();
+  ctx.setLineDash([]);ctx.fillStyle='rgba(226,75,74,0.9)';
+  ctx.font='11px Segoe UI,Arial,sans-serif';
+  ctx.fillText('50 J/cm\u00B2 threshold',ca.left+6,y50-5);
+  ctx.restore();
+}};
+var hRiskPlugin={id:'hRisk',beforeDraw:function(chart){
+  var ctx=chart.ctx,ca=chart.chartArea,sc=chart.scales;
+  if(!ca)return;
+  var y4=sc.y.getPixelForValue(4);
+  ctx.save();
+  ctx.fillStyle='rgba(190,18,60,0.07)';
+  ctx.fillRect(ca.left,ca.top,ca.right-ca.left,y4-ca.top);
+  ctx.setLineDash([5,4]);ctx.strokeStyle='rgba(190,18,60,0.55)';ctx.lineWidth=1.2;
+  ctx.beginPath();ctx.moveTo(ca.left,y4);ctx.lineTo(ca.right,y4);ctx.stroke();
+  ctx.setLineDash([]);ctx.fillStyle='rgba(190,18,60,0.85)';
+  ctx.font='11px Segoe UI,Arial,sans-serif';
+  ctx.fillText('Hepatotoxicity risk zone (>4 \u03BCg/mL)',ca.left+6,y4-5);
+  ctx.restore();
+}};
+
+// ── LOCAL TAB CHARTS ─────────────────────────────────────────
+var lc1=new Chart(document.getElementById('l-chart1').getContext('2d'),{
+  type:'line',plugins:[threshPlugin],
+  data:{labels:uvaFine,datasets:[
+    {label:'Scenario',data:uvaFine.map(function(u){return getEry(u,100,0);}),
+     borderColor:'#0f766e',backgroundColor:'rgba(15,118,110,0.08)',fill:true,borderWidth:2.5,pointRadius:0,tension:0.4},
+    {label:'Placebo',data:uvaFine.map(function(u){return 0.02*sigmoid(u,0.04,50);}),
+     borderColor:'#e24b4a',borderDash:[6,4],borderWidth:1.5,pointRadius:0,fill:false,tension:0.4},
+    {label:'Real-world',data:uvaFine.map(function(u){return Math.min((u*1000)/(envIrrad[0]*60)/120,0.97);}),
+     borderColor:'#f59e0b',borderDash:[3,3],borderWidth:1.5,pointRadius:0,fill:false,tension:0.3},
+    {label:'Measured',type:'scatter',
+     data:[{x:25,y:0.04},{x:50,y:0.38},{x:75,y:0.62},{x:100,y:0.78}],
+     backgroundColor:'#b45309',borderColor:'#b45309',pointRadius:7,showLine:false}
+  ]},
+  options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false},tooltip:{callbacks:{
+      title:function(i){return 'UVA: '+i[0].parsed.x+' J/cm\u00B2';},
+      label:function(i){return i.dataset.label+': '+(i.parsed.y*100).toFixed(0)+'%';}
+    }}},
+    scales:{
+      x:{type:'linear',min:0,max:100,title:{display:true,text:'UVA1 dose (J/cm\u00B2)',font:{size:11},color:'#64748b'},ticks:{stepSize:25,color:'#94a3b8'},grid:{color:'#f1f5f9'}},
+      y:{min:0,max:1,title:{display:true,text:'Relative erythema',font:{size:11},color:'#64748b'},ticks:{callback:function(v){return (v*100).toFixed(0)+'%';},color:'#94a3b8'},grid:{color:'#f1f5f9'}}
+    }}
+});
+
+var inciLow=[3,4,5,15],inciHigh=[8,12,20,40];
+var inciMid=inciLow.map(function(l,i){return +((l+inciHigh[i])/2).toFixed(1);});
+var doseLbls=['100','150','200','300'];
+new Chart(document.getElementById('l-chart2').getContext('2d'),{
+  type:'bar',
+  data:{labels:doseLbls.map(function(d){return d+' mg/day';}),datasets:[
+    {data:inciLow,backgroundColor:'rgba(15,118,110,0.18)',borderColor:'#0f766e',borderWidth:1,stack:'r'},
+    {data:inciHigh.map(function(h,i){return h-inciLow[i];}),backgroundColor:'rgba(15,118,110,0.38)',borderColor:'#0f766e',borderWidth:1,stack:'r'},
+    {type:'scatter',data:doseLbls.map(function(_,i){return{x:i,y:inciMid[i]};}),backgroundColor:'#0f766e',borderColor:'#0f766e',pointRadius:6,showLine:false}
+  ]},
+  options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false},tooltip:{callbacks:{title:function(i){return 'Dose: '+doseLbls[i[0].dataIndex]+' mg/day';},label:function(i){if(i.datasetIndex===2)return 'Mid: '+inciMid[i.dataIndex]+'%';if(i.datasetIndex===0)return 'Low: '+inciLow[i.dataIndex]+'%';return 'High: '+inciHigh[i.dataIndex]+'%';}}}},
+    scales:{x:{stacked:true,ticks:{color:'#94a3b8',autoSkip:false},grid:{color:'#f1f5f9'}},y:{stacked:true,min:0,max:50,ticks:{callback:function(v){return v+'%';},color:'#94a3b8'},grid:{color:'#f1f5f9'}}}}
+});
+
+var uvaLbls=['0','25','50','75','100'];
+var uvaAlone=[0.02,0.05,0.38,0.62,0.78];
+var uvaComb=uvaAlone.map(function(v){return Math.min(v*1.85+0.03,1.0);});
+new Chart(document.getElementById('l-chart3').getContext('2d'),{
+  type:'line',plugins:[threshPlugin],
+  data:{labels:uvaLbls,datasets:[
+    {label:'UVA+UVB',data:uvaComb,borderColor:'#7c3aed',backgroundColor:'rgba(124,58,237,0.07)',fill:true,borderWidth:2.5,pointRadius:4,tension:0.35,pointBackgroundColor:'#7c3aed'},
+    {label:'UVA alone',data:uvaAlone,borderColor:'#0f766e',backgroundColor:'rgba(15,118,110,0.05)',fill:true,borderWidth:2,pointRadius:4,tension:0.35,pointBackgroundColor:'#0f766e'},
+    {label:'Placebo',data:[0.02,0.03,0.04,0.06,0.08],borderColor:'#e24b4a',borderDash:[5,4],borderWidth:1.5,pointRadius:0,fill:false,tension:0.3}
+  ]},
+  options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false},tooltip:{callbacks:{title:function(i){return 'UVA: '+uvaLbls[i[0].dataIndex]+' J/cm\u00B2';},label:function(i){return i.dataset.label+': '+(i.parsed.y*100).toFixed(0)+'%';}}}},
+    scales:{x:{title:{display:true,text:'UVA1 dose (J/cm\u00B2)',font:{size:11},color:'#64748b'},ticks:{color:'#94a3b8'},grid:{color:'#f1f5f9'}},y:{min:0,max:1,ticks:{callback:function(v){return (v*100).toFixed(0)+'%';},color:'#94a3b8'},grid:{color:'#f1f5f9'}}}}
+});
+
+var lc4=new Chart(document.getElementById('l-chart4').getContext('2d'),{
+  type:'line',plugins:[hThreshPlugin],
+  data:{labels:timeAxis,datasets:[
+    {label:'Tropical',data:timeAxis.map(function(t){return cumDose(t,0);}),borderColor:'#f59e0b',fill:false,borderWidth:2.5,pointRadius:0,tension:0.1},
+    {label:'Temperate',data:timeAxis.map(function(t){return cumDose(t,1);}),borderColor:'#0369a1',fill:false,borderWidth:2,pointRadius:0,tension:0.1},
+    {label:'Overcast',data:timeAxis.map(function(t){return cumDose(t,2);}),borderColor:'#94a3b8',fill:false,borderWidth:1.5,pointRadius:0,borderDash:[4,3],tension:0.1},
+    {label:'Marker',data:[],type:'scatter',backgroundColor:'#e24b4a',borderColor:'#e24b4a',pointRadius:9,pointStyle:'crossRot',showLine:false}
+  ]},
+  options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false},tooltip:{callbacks:{title:function(i){return 'Time: '+i[0].parsed.x+' min';},label:function(i){if(i.dataset.label==='Marker')return 'Threshold crossed here';return i.dataset.label+': '+i.parsed.y.toFixed(1)+' J/cm\u00B2';}}}},
+    scales:{x:{type:'linear',min:0,max:120,title:{display:true,text:'Time in sun (minutes)',font:{size:11},color:'#64748b'},ticks:{stepSize:20,color:'#94a3b8'},grid:{color:'#f1f5f9'}},y:{min:0,max:175,title:{display:true,text:'Cumulative UVA dose (J/cm\u00B2)',font:{size:11},color:'#64748b'},ticks:{color:'#94a3b8'},grid:{color:'#f1f5f9'}}}}
+});
+
+function updateLocal(){
+  var dose=parseInt(document.getElementById('l-dose-s').value);
+  var skin=parseInt(document.getElementById('l-skin-s').value);
+  var env=parseInt(document.getElementById('l-env-s').value);
+  var color=skinColors[skin];
+  document.getElementById('l-dv').textContent=dose;
+  document.getElementById('l-dose').textContent=dose+' mg/day';
+  document.getElementById('l-skin').textContent=skinLabels[skin];
+  document.getElementById('l-leg-c1').style.background=color;
+  document.getElementById('l-leg-env').style.background=envColors[env];
+  var r50=getEry(50,dose,skin),r100=getEry(100,dose,skin);
+  document.getElementById('l-r50').textContent=riskLabel(r50)+' ('+(r50*100).toFixed(0)+'%)';
+  document.getElementById('l-r100').textContent=riskLabel(r100)+' ('+(r100*100).toFixed(0)+'%)';
+  var mins=minsToThresh(env);
+  document.getElementById('l-time').textContent='~'+mins+' min';
+  document.getElementById('l-thresh-time').textContent=mins+' minutes';
+  lc1.data.datasets[0].data=uvaFine.map(function(u){return getEry(u,dose,skin);});
+  lc1.data.datasets[0].borderColor=color;
+  lc1.data.datasets[0].backgroundColor=color+'14';
+  lc1.data.datasets[2].data=uvaFine.map(function(u){return Math.min((u*1000)/(envIrrad[env]*60)/120,0.97);});
+  lc1.data.datasets[2].borderColor=envColors[env];
+  lc1.update('none');
+  lc4.data.datasets[3].data=mins<=120?[{x:mins,y:50}]:[];
+  lc4.update('none');
+  document.getElementById('l-env-mark-leg').style.display=mins<=120?'flex':'none';
+}
+document.getElementById('l-dose-s').addEventListener('input',updateLocal);
+document.getElementById('l-skin-s').addEventListener('change',updateLocal);
+document.getElementById('l-env-s').addEventListener('change',updateLocal);
+updateLocal();
+
+// ── SYSTEMIC TAB CHARTS ──────────────────────────────────────
+
+// Chart 5: Plasma Cmax vs oral dose
+var dosePts=[50,100,150,200,250,300];
+var cmaxVals=[0.8,1.5,2.3,3.0,3.7,4.4];
+new Chart(document.getElementById('s-chart1').getContext('2d'),{
+  type:'line',plugins:[hRiskPlugin],
+  data:{labels:dosePts,datasets:[
+    {label:'Estimated Cmax',data:cmaxVals,borderColor:'#7c3aed',backgroundColor:'rgba(124,58,237,0.08)',
+     fill:true,borderWidth:2.5,pointRadius:5,pointBackgroundColor:'#7c3aed',tension:0.3}
+  ]},
+  options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false},tooltip:{callbacks:{
+      title:function(i){return 'Dose: '+dosePts[i[0].dataIndex]+' mg/day';},
+      label:function(i){return 'Est. Cmax: '+cmaxVals[i[0].dataIndex]+' \u03BCg/mL';}
+    }}},
+    scales:{
+      x:{title:{display:true,text:'Daily oral dose (mg)',font:{size:11},color:'#64748b'},ticks:{color:'#94a3b8'},grid:{color:'#f1f5f9'}},
+      y:{min:0,max:6,title:{display:true,text:'Estimated Cmax (\u03BCg/mL)',font:{size:11},color:'#64748b'},ticks:{color:'#94a3b8'},grid:{color:'#f1f5f9'}}
+    }}
+});
+
+// Chart 6: Dermal absorption by site
+var sites=['Forearm','Face','Trunk','Scalp','Axilla','Forehead','Scrotum'];
+var absorb=[1.0,0.8,1.7,3.5,3.6,6.0,36.0];
+new Chart(document.getElementById('s-chart2').getContext('2d'),{
+  type:'bar',
+  data:{labels:sites,datasets:[
+    {label:'Absorption %',data:absorb,
+     backgroundColor:absorb.map(function(v){return v<5?'rgba(124,58,237,0.5)':v<20?'rgba(124,58,237,0.75)':'rgba(190,18,60,0.75)';}),
+     borderColor:absorb.map(function(v){return v<5?'#7c3aed':v<20?'#6d28d9':'#be123c';}),
+     borderWidth:1}
+  ]},
+  options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false},tooltip:{callbacks:{label:function(i){return absorb[i.dataIndex]+'% absorbed systemically';}}}},
+    scales:{
+      x:{ticks:{color:'#94a3b8',font:{size:10}},grid:{color:'#f1f5f9'}},
+      y:{title:{display:true,text:'Dermal absorption (%)',font:{size:11},color:'#64748b'},ticks:{color:'#94a3b8'},grid:{color:'#f1f5f9'}}
+    }}
+});
+
+// Chart 7: PBPK topical absorption over 24h
+var hours=Array.from({length:25},function(_,i){return i;});
+var sites_pbpk=[
+  {name:'Scalp (3.5%)',  kp:0.035, color:'#7c3aed'},
+  {name:'Forearm (1.0%)',kp:0.010, color:'#0f766e'},
+  {name:'Face (0.8%)',   kp:0.008, color:'#f59e0b'},
+];
+var dose_mg=100, area_cm2=400;
+var sc3datasets=sites_pbpk.map(function(s){
+  return {
+    label:s.name,
+    data:hours.map(function(h){
+      var cum=s.kp*(dose_mg/area_cm2)*h*0.1;
+      return +cum.toFixed(3);
+    }),
+    borderColor:s.color,fill:false,borderWidth:2.5,pointRadius:0,tension:0.2
+  };
+});
+var hConcernPlugin={id:'hConcern',beforeDraw:function(chart){
+  var ctx=chart.ctx,ca=chart.chartArea,sc=chart.scales;
+  if(!ca)return;
+  var yc=sc.y.getPixelForValue(0.08);
+  ctx.save();
+  ctx.fillStyle='rgba(190,18,60,0.06)';
+  ctx.fillRect(ca.left,ca.top,ca.right-ca.left,yc-ca.top);
+  ctx.setLineDash([5,4]);ctx.strokeStyle='rgba(190,18,60,0.5)';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(ca.left,yc);ctx.lineTo(ca.right,yc);ctx.stroke();
+  ctx.setLineDash([]);ctx.fillStyle='rgba(190,18,60,0.8)';
+  ctx.font='10px Segoe UI,Arial,sans-serif';
+  ctx.fillText('Systemic concern threshold (illustrative)',ca.left+6,yc-4);
+  ctx.restore();
+}};
+new Chart(document.getElementById('s-chart3').getContext('2d'),{
+  type:'line',plugins:[hConcernPlugin],
+  data:{labels:hours,datasets:sc3datasets},
+  options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false},tooltip:{callbacks:{title:function(i){return 'Time: '+hours[i[0].dataIndex]+'h';},label:function(i){return i.dataset.label+': '+i.parsed.y.toFixed(3)+' mg/cm\u00B2 absorbed';}} }},
+    scales:{
+      x:{title:{display:true,text:'Time (hours)',font:{size:11},color:'#64748b'},ticks:{color:'#94a3b8'},grid:{color:'#f1f5f9'}},
+      y:{min:0,title:{display:true,text:'Cumulative absorption (mg/cm\u00B2)',font:{size:11},color:'#64748b'},ticks:{color:'#94a3b8'},grid:{color:'#f1f5f9'}}
+    }}
+});
+
+// ── Systemic gauge update ─────────────────────────────────────
+var siteAbsorbMap={face:0.8,forearm:1.0,scalp:3.5,scrotum:36.0};
+var siteLabels={face:'Face',forearm:'Forearm',scalp:'Scalp',scrotum:'Scrotum'};
+
+function updateSystemic(){
+  var route=document.getElementById('s-route-s').value;
+  var dose=parseInt(document.getElementById('s-dose-s').value);
+  var site=document.getElementById('s-site-s').value;
+  document.getElementById('s-dv').textContent=dose;
+  document.getElementById('s-route-label').textContent=
+    route==='oral'?'Oral doxycycline':'Topical doxycycline';
+
+  var gauges;
+  if(route==='oral'){
+    var cmax=+(dose*0.015).toFixed(1);
+    var hepatoPct=Math.min((cmax/6)*100,100);
+    var renalPct=Math.min((dose/300)*60,100);
+    var giPct=Math.min((dose/300)*80,100);
+    gauges=[
+      {label:'Plasma Cmax (est.)',val:cmax+' μg/mL',pct:Math.min((cmax/6)*100,100),color:'#7c3aed'},
+      {label:'Hepatotoxicity risk',val:hepatoPct<40?'Low':'hepatoPct<70'?'Moderate':'High',pct:hepatoPct,color:hepatoPct<40?'#0f766e':hepatoPct<70?'#f59e0b':'#be123c'},
+      {label:'Renal load',val:renalPct<40?'Low':'Moderate',pct:renalPct,color:renalPct<40?'#0f766e':'#f59e0b'},
+      {label:'GI adverse effects',val:giPct<50?'Moderate':'High',pct:giPct,color:'#f59e0b'},
+      {label:'Systemic route',val:'GI absorption',pct:100,color:'#0369a1'},
+      {label:'Skin absorption contribution',val:'Negligible',pct:3,color:'#94a3b8'},
+    ];
+    document.getElementById('s-route-note').textContent=
+      'For oral doxycycline, systemic toxicity is predicted from plasma drug levels via GI absorption — not from skin. The phototoxic skin reaction is a separate local effect.';
+  } else {
+    var absRate=siteAbsorbMap[site];
+    var sysDose=+(dose*(absRate/100)).toFixed(1);
+    var sysPct=Math.min((sysDose/10)*100,100);
+    gauges=[
+      {label:'Estimated absorbed dose',val:sysDose+' mg ('+absRate+'%)',pct:Math.min(sysPct,100),color:'#7c3aed'},
+      {label:'Systemic exposure risk',val:sysPct<20?'Low':sysPct<50?'Moderate':'High',pct:sysPct,color:sysPct<20?'#0f766e':sysPct<50?'#f59e0b':'#be123c'},
+      {label:'Site: '+siteLabels[site],val:absRate+'% absorption rate',pct:Math.min((absRate/36)*100,100),color:'#0369a1'},
+      {label:'Hepatotoxicity risk',val:sysDose>4?'Elevated':'Low–moderate',pct:Math.min((sysDose/10)*80,100),color:sysDose>4?'#be123c':'#0f766e'},
+      {label:'PBPK model confidence',val:'Low (limited doxy data)',pct:25,color:'#94a3b8'},
+      {label:'Skin barrier integrity',val:'Critical predictor',pct:70,color:'#f59e0b'},
+    ];
+    document.getElementById('s-route-note').textContent=
+      'For topical doxycycline, the skin IS the absorption barrier. Systemic exposure depends on application site, surface area, skin condition, and occlusion. Values are estimates from PBPK framework — not validated clinical predictions.';
+  }
+
+  var row=document.getElementById('gauge-row');
+  row.innerHTML='';
+  gauges.forEach(function(g){
+    var div=document.createElement('div');
+    div.className='gauge-card';
+    div.innerHTML='<div class="gauge-label">'+g.label+'</div>'+
+      '<div class="gauge-bar-bg"><div class="gauge-bar" style="width:'+Math.round(g.pct)+'%;background:'+g.color+'"></div></div>'+
+      '<div class="gauge-val" style="color:'+g.color+'">'+g.val+'</div>';
+    row.appendChild(div);
+  });
+}
+document.getElementById('s-route-s').addEventListener('change',updateSystemic);
+document.getElementById('s-dose-s').addEventListener('input',updateSystemic);
+document.getElementById('s-site-s').addEventListener('change',updateSystemic);
+updateSystemic();
+</script>
+</body>
+</html>
